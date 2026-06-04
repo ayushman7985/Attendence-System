@@ -1,0 +1,6 @@
+mkdir backend\app
+mkdir backend\app\routes
+mkdir backend\app\models
+mkdir backend\app\schemas
+mkdir backend\app\services
+mkdir backend\app\utils
