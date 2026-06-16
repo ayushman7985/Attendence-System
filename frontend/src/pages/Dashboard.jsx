@@ -43,11 +43,6 @@ export default function Dashboard({ user, onLogout }) {
   const [toast, setToast] = useState(null);
 
   const [leaves, setLeaves] = useState([]);
-  const [leaveEmployeeId, setLeaveEmployeeId] = useState("");
-  const [leaveReason, setLeaveReason] = useState("");
-  const [leaveStart, setLeaveStart] = useState("");
-  const [leaveEnd, setLeaveEnd] = useState("");
-  const [applyingLeave, setApplyingLeave] = useState(false);
   const [updatingLeaveId, setUpdatingLeaveId] = useState(null);
 
   const showToast = useCallback((message, type = "success") => {
@@ -100,46 +95,6 @@ export default function Dashboard({ user, onLogout }) {
       showToast("Failed to mark attendance", "error");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const applyLeave = async (e) => {
-    e.preventDefault();
-    if (!leaveEmployeeId) {
-      showToast("Please select an employee", "error");
-      return;
-    }
-    if (!leaveReason.trim()) {
-      showToast("Please enter a reason", "error");
-      return;
-    }
-    if (!leaveStart || !leaveEnd) {
-      showToast("Please select start and end dates", "error");
-      return;
-    }
-    if (leaveEnd < leaveStart) {
-      showToast("End date cannot be before start date", "error");
-      return;
-    }
-
-    setApplyingLeave(true);
-    try {
-      await api.post("/leaves", {
-        employee_id: Number(leaveEmployeeId),
-        reason: leaveReason.trim(),
-        start_date: leaveStart,
-        end_date: leaveEnd,
-      });
-      showToast("Leave applied successfully");
-      setLeaveEmployeeId("");
-      setLeaveReason("");
-      setLeaveStart("");
-      setLeaveEnd("");
-      await getLeaves();
-    } catch {
-      showToast("Failed to apply for leave", "error");
-    } finally {
-      setApplyingLeave(false);
     }
   };
 
@@ -404,90 +359,7 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           </section>
 
-          <section className="card">
-            <div className="card__head">
-              <h2 className="card__title">
-                <svg className="card__title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M8 2v4M16 2v4M3 10h18" />
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M9 16l2 2 4-4" />
-                </svg>
-                Apply for Leave
-              </h2>
-            </div>
-            <div className="card__body">
-              <form className="form" onSubmit={applyLeave}>
-                <div className="form__group">
-                  <label className="form__label" htmlFor="leave-employee">
-                    Employee
-                  </label>
-                  <select
-                    id="leave-employee"
-                    className="form__select"
-                    value={leaveEmployeeId}
-                    onChange={(e) => setLeaveEmployeeId(e.target.value)}
-                  >
-                    <option value="">Select employee…</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form__group">
-                  <label className="form__label" htmlFor="leave-reason">
-                    Reason
-                  </label>
-                  <input
-                    id="leave-reason"
-                    className="form__select"
-                    type="text"
-                    placeholder="e.g. Medical, Personal…"
-                    value={leaveReason}
-                    onChange={(e) => setLeaveReason(e.target.value)}
-                  />
-                </div>
-
-                <div className="form__row">
-                  <div className="form__group">
-                    <label className="form__label" htmlFor="leave-start">
-                      From
-                    </label>
-                    <input
-                      id="leave-start"
-                      className="form__select"
-                      type="date"
-                      value={leaveStart}
-                      onChange={(e) => setLeaveStart(e.target.value)}
-                    />
-                  </div>
-                  <div className="form__group">
-                    <label className="form__label" htmlFor="leave-end">
-                      To
-                    </label>
-                    <input
-                      id="leave-end"
-                      className="form__select"
-                      type="date"
-                      value={leaveEnd}
-                      onChange={(e) => setLeaveEnd(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <button type="submit" className="btn-submit" disabled={applyingLeave}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                  </svg>
-                  {applyingLeave ? "Applying…" : "Apply for leave"}
-                </button>
-              </form>
-            </div>
-          </section>
-
-          <section className="card">
+          <section className="card dashboard__full">
             <div className="card__head">
               <h2 className="card__title">
                 <svg className="card__title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -504,7 +376,7 @@ export default function Dashboard({ user, onLogout }) {
                   <svg className="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
-                  <p>No pending leave requests.</p>
+                  <p>No pending leave requests. Employees apply from their dashboard.</p>
                 </div>
               ) : (
                 <ul className="leave-list">
@@ -562,7 +434,7 @@ export default function Dashboard({ user, onLogout }) {
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path d="M8 2v4M16 2v4M3 10h18" />
                   </svg>
-                  <p>No leave requests yet. Apply for the first one above.</p>
+                  <p>No leave requests yet. Employees can apply from their dashboard.</p>
                 </div>
               ) : (
                 <div className="records-table-wrap">

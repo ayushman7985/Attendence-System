@@ -5,6 +5,15 @@ import "./Login.css";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+const DEMO_ACCOUNTS = {
+  company: { email: "admin@technova.com", password: "demo123" },
+  employees: [
+    { name: "Priya Sharma", email: "priya@technova.com", password: "demo123" },
+    { name: "Rahul Kumar", email: "rahul@technova.com", password: "demo123" },
+    { name: "Ananya Singh", email: "ananya@technova.com", password: "demo123" },
+  ],
+};
+
 export default function Login({ onLogin }) {
   const [role, setRole] = useState("company");
   const [mode, setMode] = useState("login");
@@ -139,13 +148,14 @@ export default function Login({ onLogin }) {
     }
   };
 
+  const fillDemo = (account) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setError("");
+  };
+
   const handleGoogle = () => {
     setError("");
-
-    if (!GOOGLE_CLIENT_ID) {
-      setError("Google sign-in is not configured. Add VITE_GOOGLE_CLIENT_ID.");
-      return;
-    }
 
     if (!window.google?.accounts?.oauth2) {
       setError("Google library is still loading. Please try again.");
@@ -460,6 +470,32 @@ export default function Login({ onLogin }) {
 
             {error && <p className="login-form__error">{error}</p>}
 
+            {isLogin && (
+              <div className="login-demo">
+                <p className="login-demo__title">Demo accounts (password: demo123)</p>
+                {!isEmployee ? (
+                  <button
+                    type="button"
+                    className="login-demo__btn"
+                    onClick={() => fillDemo(DEMO_ACCOUNTS.company)}
+                  >
+                    TechNova Solutions — admin@technova.com
+                  </button>
+                ) : (
+                  DEMO_ACCOUNTS.employees.map((emp) => (
+                    <button
+                      key={emp.email}
+                      type="button"
+                      className="login-demo__btn"
+                      onClick={() => fillDemo(emp)}
+                    >
+                      {emp.name} — {emp.email}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
             <button type="submit" className="login-form__submit" disabled={loading}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 {isLogin ? (
@@ -477,27 +513,31 @@ export default function Login({ onLogin }) {
                   : "Create account"}
             </button>
 
-            <div className="login-divider">
-              <span>or continue with</span>
-            </div>
+            {GOOGLE_CLIENT_ID && (
+              <>
+                <div className="login-divider">
+                  <span>or continue with</span>
+                </div>
 
-            <div className="login-social">
-              <button
-                type="button"
-                className="login-social__btn"
-                aria-label="Continue with Google"
-                onClick={handleGoogle}
-                disabled={loading}
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 015.49 12c0-.73.13-1.43.35-2.1V7.06H2.18A11 11 0 001 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
-                </svg>
-                Continue with Google
-              </button>
-            </div>
+                <div className="login-social">
+                  <button
+                    type="button"
+                    className="login-social__btn"
+                    aria-label="Continue with Google"
+                    onClick={handleGoogle}
+                    disabled={loading}
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 015.49 12c0-.73.13-1.43.35-2.1V7.06H2.18A11 11 0 001 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+                    </svg>
+                    Continue with Google
+                  </button>
+                </div>
+              </>
+            )}
 
             <p className="login-footer">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
