@@ -23,6 +23,16 @@ function StatusBadge({ status }) {
   );
 }
 
+function LeaveBadge({ status }) {
+  const normalized = (status || "pending").toLowerCase();
+  return (
+    <span className={`badge badge--leave-${normalized}`}>
+      <span className="badge__dot" />
+      {status || "Pending"}
+    </span>
+  );
+}
+
 export default function Dashboard({ user, onLogout }) {
   const [employees, setEmployees] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -31,6 +41,14 @@ export default function Dashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const [leaves, setLeaves] = useState([]);
+  const [leaveEmployeeId, setLeaveEmployeeId] = useState("");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveStart, setLeaveStart] = useState("");
+  const [leaveEnd, setLeaveEnd] = useState("");
+  const [applyingLeave, setApplyingLeave] = useState(false);
+  const [updatingLeaveId, setUpdatingLeaveId] = useState(null);
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -47,10 +65,15 @@ export default function Dashboard({ user, onLogout }) {
     setAttendance(res.data);
   };
 
+  const getLeaves = async () => {
+    const res = await api.get("/leaves");
+    setLeaves(res.data);
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      await Promise.all([getEmployees(), getAttendance()]);
+      await Promise.all([getEmployees(), getAttendance(), getLeaves()]);
     } catch {
       showToast("Could not connect to the API. Is the backend running?", "error");
     } finally {
@@ -80,6 +103,59 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
+  const applyLeave = async (e) => {
+    e.preventDefault();
+    if (!leaveEmployeeId) {
+      showToast("Please select an employee", "error");
+      return;
+    }
+    if (!leaveReason.trim()) {
+      showToast("Please enter a reason", "error");
+      return;
+    }
+    if (!leaveStart || !leaveEnd) {
+      showToast("Please select start and end dates", "error");
+      return;
+    }
+    if (leaveEnd < leaveStart) {
+      showToast("End date cannot be before start date", "error");
+      return;
+    }
+
+    setApplyingLeave(true);
+    try {
+      await api.post("/leaves", {
+        employee_id: Number(leaveEmployeeId),
+        reason: leaveReason.trim(),
+        start_date: leaveStart,
+        end_date: leaveEnd,
+      });
+      showToast("Leave applied successfully");
+      setLeaveEmployeeId("");
+      setLeaveReason("");
+      setLeaveStart("");
+      setLeaveEnd("");
+      await getLeaves();
+    } catch {
+      showToast("Failed to apply for leave", "error");
+    } finally {
+      setApplyingLeave(false);
+    }
+  };
+
+  const updateLeaveStatus = async (leaveId, newStatus) => {
+    setUpdatingLeaveId(leaveId);
+    try {
+      await api.patch(`/leaves/${leaveId}`, { status: newStatus });
+      showToast(`Leave ${newStatus.toLowerCase()}`);
+      await getLeaves();
+    } catch {
+      showToast("Failed to update leave", "error");
+    } finally {
+      setUpdatingLeaveId(null);
+    }
+  };
+
   const resolveEmployeeName = (recordName) => {
     const id = Number(recordName);
     const emp = employees.find((e) => e.id === id);
@@ -89,6 +165,10 @@ export default function Dashboard({ user, onLogout }) {
   const presentCount = attendance.filter(
     (a) => (a.status || "").toLowerCase() === "present"
   ).length;
+
+  const pendingLeaves = leaves.filter(
+    (l) => (l.status || "").toLowerCase() === "pending"
+  );
 
   useEffect(() => {
     loadData();
@@ -167,6 +247,10 @@ export default function Dashboard({ user, onLogout }) {
             <div className="stat">
               <p className="stat__label">Total records</p>
               <p className="stat__value">{attendance.length}</p>
+            </div>
+            <div className="stat stat--warn">
+              <p className="stat__label">Pending leaves</p>
+              <p className="stat__value">{pendingLeaves.length}</p>
             </div>
           </div>
         </header>
@@ -310,6 +394,201 @@ export default function Dashboard({ user, onLogout }) {
                           </td>
                           <td>
                             <StatusBadge status={att.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <svg className="card__title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 2v4M16 2v4M3 10h18" />
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M9 16l2 2 4-4" />
+                </svg>
+                Apply for Leave
+              </h2>
+            </div>
+            <div className="card__body">
+              <form className="form" onSubmit={applyLeave}>
+                <div className="form__group">
+                  <label className="form__label" htmlFor="leave-employee">
+                    Employee
+                  </label>
+                  <select
+                    id="leave-employee"
+                    className="form__select"
+                    value={leaveEmployeeId}
+                    onChange={(e) => setLeaveEmployeeId(e.target.value)}
+                  >
+                    <option value="">Select employee…</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form__group">
+                  <label className="form__label" htmlFor="leave-reason">
+                    Reason
+                  </label>
+                  <input
+                    id="leave-reason"
+                    className="form__select"
+                    type="text"
+                    placeholder="e.g. Medical, Personal…"
+                    value={leaveReason}
+                    onChange={(e) => setLeaveReason(e.target.value)}
+                  />
+                </div>
+
+                <div className="form__row">
+                  <div className="form__group">
+                    <label className="form__label" htmlFor="leave-start">
+                      From
+                    </label>
+                    <input
+                      id="leave-start"
+                      className="form__select"
+                      type="date"
+                      value={leaveStart}
+                      onChange={(e) => setLeaveStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="form__group">
+                    <label className="form__label" htmlFor="leave-end">
+                      To
+                    </label>
+                    <input
+                      id="leave-end"
+                      className="form__select"
+                      type="date"
+                      value={leaveEnd}
+                      onChange={(e) => setLeaveEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" className="btn-submit" disabled={applyingLeave}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                  </svg>
+                  {applyingLeave ? "Applying…" : "Apply for leave"}
+                </button>
+              </form>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <svg className="card__title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 8v4l3 3" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+                Pending Approvals
+              </h2>
+              <span className="card__badge">{pendingLeaves.length} pending</span>
+            </div>
+            <div className="card__body">
+              {pendingLeaves.length === 0 ? (
+                <div className="empty">
+                  <svg className="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  <p>No pending leave requests.</p>
+                </div>
+              ) : (
+                <ul className="leave-list">
+                  {pendingLeaves.map((lv) => (
+                    <li key={lv.id} className="leave-item">
+                      <div className="leave-item__info">
+                        <p className="leave-item__name">
+                          {resolveEmployeeName(lv.employee_id)}
+                        </p>
+                        <p className="leave-item__meta">{lv.reason}</p>
+                        <p className="leave-item__dates">
+                          {lv.start_date} → {lv.end_date}
+                        </p>
+                      </div>
+                      <div className="leave-item__actions">
+                        <button
+                          type="button"
+                          className="btn-approve"
+                          disabled={updatingLeaveId === lv.id}
+                          onClick={() => updateLeaveStatus(lv.id, "Approved")}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-reject"
+                          disabled={updatingLeaveId === lv.id}
+                          onClick={() => updateLeaveStatus(lv.id, "Rejected")}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section className="card dashboard__full">
+            <div className="card__head">
+              <h2 className="card__title">
+                <svg className="card__title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 3v18h18" />
+                  <path d="M7 14l4-4 3 3 5-5" />
+                </svg>
+                Leave History
+              </h2>
+              <span className="card__badge">{leaves.length} requests</span>
+            </div>
+            <div className="card__body">
+              {leaves.length === 0 ? (
+                <div className="empty">
+                  <svg className="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M8 2v4M16 2v4M3 10h18" />
+                  </svg>
+                  <p>No leave requests yet. Apply for the first one above.</p>
+                </div>
+              ) : (
+                <div className="records-table-wrap">
+                  <table className="records-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Employee</th>
+                        <th>Reason</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaves.map((lv) => (
+                        <tr key={lv.id}>
+                          <td>{lv.id}</td>
+                          <td>
+                            <strong>{resolveEmployeeName(lv.employee_id)}</strong>
+                          </td>
+                          <td>{lv.reason}</td>
+                          <td>{lv.start_date}</td>
+                          <td>{lv.end_date}</td>
+                          <td>
+                            <LeaveBadge status={lv.status} />
                           </td>
                         </tr>
                       ))}

@@ -18,6 +18,10 @@
   --accent: #22d3ee;
   --accent-dim: rgba(34, 211, 238, 0.12);
   --accent-glow: rgba(34, 211, 238, 0.35);
+  --accent-2: #8b5cf6;
+  --indigo: #6366f1;
+  --gradient: linear-gradient(135deg, #22d3ee 0%, #6366f1 60%, #8b5cf6 100%);
+  --gradient-soft: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(139, 92, 246, 0.22));
   --success: #34d399;
   --success-bg: rgba(52, 211, 153, 0.12);
   --danger: #f87171;

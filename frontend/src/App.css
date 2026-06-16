@@ -72,18 +72,18 @@
 .header__logo {
   width: 52px;
   height: 52px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent), #6366f1);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--indigo), var(--accent-2));
   display: grid;
   place-items: center;
-  box-shadow: 0 8px 24px var(--accent-glow);
+  box-shadow: 0 10px 28px rgba(139, 92, 246, 0.45);
   flex-shrink: 0;
 }
 
 .header__logo svg {
   width: 28px;
   height: 28px;
-  color: #0b0f14;
+  color: #fff;
 }
 
 .header__title {
@@ -136,12 +136,18 @@
 /* Stats */
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-top: 1.5rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
   .stats {
     grid-template-columns: 1fr;
   }
@@ -180,6 +186,10 @@
 
 .stat--accent .stat__value {
   color: var(--accent);
+}
+
+.stat--warn .stat__value {
+  color: var(--warning, #fbbf24);
 }
 
 /* Layout */
@@ -428,16 +438,16 @@
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #0b0f14;
+  color: #fff;
   cursor: pointer;
-  background: linear-gradient(135deg, var(--accent), #2dd4bf);
-  box-shadow: 0 4px 20px var(--accent-glow);
+  background: var(--gradient);
+  box-shadow: 0 6px 22px rgba(99, 102, 241, 0.4);
   transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
 }
 
 .btn-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 28px var(--accent-glow);
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
 }
 
 .btn-submit:active:not(:disabled) {
@@ -613,4 +623,119 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Leave management */
+.form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 420px) {
+  .form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.leave-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.leave-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.leave-item__info {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.leave-item__name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.leave-item__meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.leave-item__dates {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.leave-item__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-approve,
+.btn-reject {
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.btn-approve {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.btn-reject {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.btn-approve:hover:not(:disabled),
+.btn-reject:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.badge--leave-approved {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.badge--leave-rejected {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.badge--leave-pending {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning, #fbbf24);
 }
