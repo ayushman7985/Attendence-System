@@ -45,6 +45,11 @@ export default function Dashboard({ user, onLogout }) {
   const [leaves, setLeaves] = useState([]);
   const [updatingLeaveId, setUpdatingLeaveId] = useState(null);
 
+  const [newEmpName, setNewEmpName] = useState("");
+  const [newEmpEmail, setNewEmpEmail] = useState("");
+  const [addingEmployee, setAddingEmployee] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState(null);
+
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3200);
@@ -53,6 +58,51 @@ export default function Dashboard({ user, onLogout }) {
   const getEmployees = async () => {
     const res = await api.get("/employees");
     setEmployees(res.data);
+  };
+
+  const getInviteInfo = async () => {
+    const res = await api.get("/company/invite");
+    setInviteInfo(res.data);
+  };
+
+  const copyText = async (text, message = "Copied to clipboard") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(message);
+    } catch {
+      showToast("Could not copy to clipboard", "error");
+    }
+  };
+
+  const inviteLink = inviteInfo?.invite_code
+    ? `${window.location.origin}/?invite=${inviteInfo.invite_code}`
+    : "";
+
+  const addEmployee = async (e) => {
+    e.preventDefault();
+    if (!newEmpName.trim() || !newEmpEmail.trim()) {
+      showToast("Name and email are required", "error");
+      return;
+    }
+
+    setAddingEmployee(true);
+    try {
+      await api.post("/employees", {
+        name: newEmpName.trim(),
+        email: newEmpEmail.trim(),
+      });
+      showToast("Employee added. They can now sign up with this email.");
+      setNewEmpName("");
+      setNewEmpEmail("");
+      await getEmployees();
+    } catch (err) {
+      showToast(
+        err?.response?.data?.detail || "Failed to add employee",
+        "error"
+      );
+    } finally {
+      setAddingEmployee(false);
+    }
   };
 
   const getAttendance = async () => {
@@ -68,7 +118,7 @@ export default function Dashboard({ user, onLogout }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      await Promise.all([getEmployees(), getAttendance(), getLeaves()]);
+      await Promise.all([getEmployees(), getAttendance(), getLeaves(), getInviteInfo()]);
     } catch {
       showToast("Could not connect to the API. Is the backend running?", "error");
     } finally {
@@ -211,6 +261,60 @@ export default function Dashboard({ user, onLogout }) {
         </header>
 
         <main className="dashboard">
+          <section className="card dashboard__full">
+            <div className="card__head">
+              <h2 className="card__title">
+                <svg className="card__title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+                </svg>
+                Employee Invite
+              </h2>
+            </div>
+            <div className="card__body">
+              {inviteInfo ? (
+                <div className="invite-panel">
+                  <div className="invite-panel__item">
+                    <p className="invite-panel__label">Company code</p>
+                    <div className="invite-panel__row">
+                      <code className="invite-panel__code">{inviteInfo.invite_code}</code>
+                      <button
+                        type="button"
+                        className="btn-copy"
+                        onClick={() => copyText(inviteInfo.invite_code, "Company code copied")}
+                      >
+                        Copy code
+                      </button>
+                    </div>
+                  </div>
+                  <div className="invite-panel__item">
+                    <p className="invite-panel__label">Invite link</p>
+                    <div className="invite-panel__row">
+                      <input
+                        className="form__input invite-panel__link"
+                        type="text"
+                        readOnly
+                        value={inviteLink}
+                      />
+                      <button
+                        type="button"
+                        className="btn-copy"
+                        onClick={() => copyText(inviteLink, "Invite link copied")}
+                      >
+                        Copy link
+                      </button>
+                    </div>
+                  </div>
+                  <p className="card__hint">
+                    Share the code or link with employees. They can sign up without you adding their email first.
+                  </p>
+                </div>
+              ) : (
+                <p className="card__hint">Loading invite details…</p>
+              )}
+            </div>
+          </section>
+
           <section className="card">
             <div className="card__head">
               <h2 className="card__title">
@@ -224,6 +328,44 @@ export default function Dashboard({ user, onLogout }) {
               <span className="card__badge">{employees.length} active</span>
             </div>
             <div className="card__body">
+              <form className="form form--inline" onSubmit={addEmployee}>
+                <div className="form__group">
+                  <label className="form__label" htmlFor="new-emp-name">
+                    Name
+                  </label>
+                  <input
+                    id="new-emp-name"
+                    className="form__input"
+                    type="text"
+                    placeholder="Employee name"
+                    value={newEmpName}
+                    onChange={(e) => setNewEmpName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form__group">
+                  <label className="form__label" htmlFor="new-emp-email">
+                    Email
+                  </label>
+                  <input
+                    id="new-emp-email"
+                    className="form__input"
+                    type="email"
+                    placeholder="employee@gmail.com"
+                    value={newEmpEmail}
+                    onChange={(e) => setNewEmpEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn-submit" disabled={addingEmployee}>
+                  {addingEmployee ? "Adding…" : "Add employee"}
+                </button>
+              </form>
+
+              <p className="card__hint">
+                Add employees manually, or share your invite link/code above so they can sign up themselves.
+              </p>
+
               {employees.length === 0 ? (
                 <div className="empty">
                   <svg className="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -241,7 +383,11 @@ export default function Dashboard({ user, onLogout }) {
                         <p className="employee-item__name">{emp.name}</p>
                         <p className="employee-item__meta">{emp.email || `ID ${emp.id}`}</p>
                       </div>
-                      <span className="employee-item__id">#{emp.id}</span>
+                      <span
+                        className={`employee-item__status ${emp.registered ? "is-registered" : "is-pending"}`}
+                      >
+                        {emp.registered ? "Signed up" : "Pending signup"}
+                      </span>
                     </li>
                   ))}
                 </ul>

@@ -92,7 +92,6 @@ export default function EmployeeDashboard({ user, onLogout }) {
     setApplying(true);
     try {
       await api.post("/leaves", {
-        employee_id: user.id,
         reason: reason.trim(),
         start_date: start,
         end_date: end,

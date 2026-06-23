@@ -6,7 +6,6 @@ A full-stack attendance and leave management application. Companies (admins) can
 
 - **Company (Admin) login** — view employees, mark attendance (Present / Absent), approve or reject pending leave requests, view leave history
 - **Employee login** — apply for leave, view leave balance, see personal attendance records
-- **Demo accounts** — pre-seeded data for interviews; one-click fill on the login page
 - **Google OAuth** — optional; works when `VITE_GOOGLE_CLIENT_ID` is configured in `frontend/.env`
 
 ## Tech Stack
@@ -39,7 +38,6 @@ attendence-system/
 │       ├── models.py              # Company, Employee, Attendance, Leave tables
 │       ├── schemas.py             # Pydantic request models
 │       ├── security.py            # bcrypt password hashing/verification
-│       ├── seed_demo.py           # Demo data for interviews
 │       └── attendance.db          # SQLite database (created on first run)
 ├── frontend/
 │   └── src/
@@ -75,10 +73,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 cd backend/app
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8001
 ```
 
-The API runs at `http://127.0.0.1:8000`. Interactive docs: `http://127.0.0.1:8000/docs`.
+The API runs at `http://127.0.0.1:8001`. Interactive docs: `http://127.0.0.1:8001/docs`.
 
 The SQLite database and tables are created automatically on first run.
 
@@ -90,62 +88,7 @@ npm install
 npm run dev
 ```
 
-The app runs at the URL printed by Vite (typically `http://localhost:5173`). It expects the backend at `http://127.0.0.1:8000` — change `API` in `frontend/src/api.js` if needed.
-
-### 3. Load demo data (for interviews / testing)
-
-```bash
-cd backend/app
-python seed_demo.py
-```
-
-If demo data already exists, the script skips creation and prints the credentials again.
-
-To reset demo data:
-
-```bash
-cd backend/app
-del attendance.db        # Windows
-# rm attendance.db     # macOS / Linux
-python seed_demo.py
-```
-
-Then restart uvicorn.
-
-## Demo Login Credentials
-
-**Password for all accounts:** `demo123`
-
-On the login page, click a demo account button to auto-fill email and password.
-
-### Company (Admin)
-
-| Field    | Value                  |
-| -------- | ---------------------- |
-| Tab      | **Company** → Sign in  |
-| Email    | `admin@technova.com`   |
-| Password | `demo123`              |
-| Company  | TechNova Solutions     |
-
-### Employees
-
-| Tab      | **Employee** → Sign in |
-| -------- | ---------------------- |
-| Password | `demo123` (all)        |
-
-| Name           | Email                  |
-| -------------- | ---------------------- |
-| Priya Sharma   | `priya@technova.com`   |
-| Rahul Kumar    | `rahul@technova.com`   |
-| Ananya Singh   | `ananya@technova.com`  |
-| Vikram Patel   | `vikram@technova.com`  |
-
-### Interview demo flow
-
-1. **Employee login** (e.g. Priya) → apply for leave
-2. **Admin login** → **Pending Approvals** → Approve or Reject
-3. **Admin** → mark attendance for employees
-4. **Employee** → view updated leave balance and attendance
+The app runs at the URL printed by Vite (typically `http://localhost:5173`). It expects the backend at `http://127.0.0.1:8001` — change `VITE_API_URL` in `frontend/.env` if needed.
 
 ## Google Sign-In (Optional)
 
