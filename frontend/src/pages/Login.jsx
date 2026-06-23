@@ -1,18 +1,14 @@
 import { useState } from "react";
-import { api, getErrorMessage } from "../api";
+import { api, getErrorMessage, setAuthToken } from "../api";
 import { setSession } from "../authStorage";
 import "./Login.css";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-const DEMO_ACCOUNTS = {
-  company: { email: "admin@technova.com", password: "demo123" },
-  employees: [
-    { name: "Priya Sharma", email: "priya@technova.com", password: "demo123" },
-    { name: "Rahul Kumar", email: "rahul@technova.com", password: "demo123" },
-    { name: "Ananya Singh", email: "ananya@technova.com", password: "demo123" },
-  ],
-};
+function saveSession(session) {
+  setSession(session);
+  setAuthToken(session.access_token);
+}
 
 export default function Login({ onLogin }) {
   const [role, setRole] = useState("company");
@@ -53,8 +49,9 @@ export default function Login({ onLogin }) {
       role: "company",
       company: res.data.company,
       email: email.trim(),
+      access_token: res.data.access_token,
     };
-    setSession(session);
+    saveSession(session);
     onLogin(session);
   };
 
@@ -84,8 +81,9 @@ export default function Login({ onLogin }) {
       name: emp.name,
       email: emp.email,
       total_leaves: emp.total_leaves,
+      access_token: res.data.access_token,
     };
-    setSession(session);
+    saveSession(session);
     onLogin(session);
   };
 
@@ -129,16 +127,18 @@ export default function Login({ onLogin }) {
           name: emp.name,
           email: emp.email,
           total_leaves: emp.total_leaves,
+          access_token: res.data.access_token,
         };
-        setSession(session);
+        saveSession(session);
         onLogin(session);
       } else {
         const session = {
           role: "company",
           company: res.data.company,
           email: res.data.email,
+          access_token: res.data.access_token,
         };
-        setSession(session);
+        saveSession(session);
         onLogin(session);
       }
     } catch (err) {
@@ -146,12 +146,6 @@ export default function Login({ onLogin }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (account) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    setError("");
   };
 
   const handleGoogle = () => {
@@ -469,32 +463,6 @@ export default function Login({ onLogin }) {
             )}
 
             {error && <p className="login-form__error">{error}</p>}
-
-            {isLogin && (
-              <div className="login-demo">
-                <p className="login-demo__title">Demo accounts (password: demo123)</p>
-                {!isEmployee ? (
-                  <button
-                    type="button"
-                    className="login-demo__btn"
-                    onClick={() => fillDemo(DEMO_ACCOUNTS.company)}
-                  >
-                    TechNova Solutions — admin@technova.com
-                  </button>
-                ) : (
-                  DEMO_ACCOUNTS.employees.map((emp) => (
-                    <button
-                      key={emp.email}
-                      type="button"
-                      className="login-demo__btn"
-                      onClick={() => fillDemo(emp)}
-                    >
-                      {emp.name} — {emp.email}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
 
             <button type="submit" className="login-form__submit" disabled={loading}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

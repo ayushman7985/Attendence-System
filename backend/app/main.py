@@ -6,21 +6,22 @@ from sqlalchemy.orm import Session
 
 # AUTH ROUTER
 try:
-    from .auth import router as auth_router
+    from .auth import router as auth_router, CurrentUser, get_current_user, require_company
 except ImportError:
-    from auth import router as auth_router
+    from auth import router as auth_router, CurrentUser, get_current_user, require_company
 
 # DATABASE + MODELS
 try:
     # Package-style imports
-    from .database import engine, Base, SessionLocal
+    from .database import engine, Base, SessionLocal, ensure_schema
     from . import models, schemas
 except ImportError:
     # Module-style imports
-    from database import engine, Base, SessionLocal
+    from database import engine, Base, SessionLocal, ensure_schema
     import models, schemas
 
 
+ensure_schema()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -52,10 +53,34 @@ def home():
     return {"message": "Attendance API Running"}
 
 
+# Helper: employees belonging to a company
+def _company_employees(db: Session, company_id: int):
+    return db.query(models.Employee).filter(
+        models.Employee.company_id == company_id
+    )
+
+
+def _company_employee_ids(db: Session, company_id: int) -> list[int]:
+    return [e.id for e in _company_employees(db, company_id).all()]
+
+
+def _employee_belongs_to_company(
+    db: Session, employee_id: int, company_id: int
+) -> bool:
+    employee = db.query(models.Employee).filter(
+        models.Employee.id == employee_id,
+        models.Employee.company_id == company_id,
+    ).first()
+    return employee is not None
+
+
 # Get Employees
 @app.get("/employees", tags=["employee"])
-def get_employees(db: Session = Depends(get_db)):
-    employees = db.query(models.Employee).all()
+def get_employees(
+    db: Session = Depends(get_db),
+    company: CurrentUser = Depends(require_company),
+):
+    employees = _company_employees(db, company.id).all()
     return [
         {"id": e.id, "name": e.name, "email": e.email}
         for e in employees
@@ -66,7 +91,8 @@ def get_employees(db: Session = Depends(get_db)):
 @app.post("/employees", tags=["employee"])
 def create_employee(
     emp: schemas.EmployeeCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    company: CurrentUser = Depends(require_company),
 ):
     existing = db.query(models.Employee).filter(
         models.Employee.email == emp.email
@@ -79,6 +105,7 @@ def create_employee(
         name=emp.name,
         email=emp.email,
         password="",
+        company_id=company.id,
     )
 
     db.add(new_employee)
@@ -92,8 +119,12 @@ def create_employee(
 @app.post("/attendance", tags=["attendance"])
 def mark_attendance(
     att: schemas.AttendanceCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    company: CurrentUser = Depends(require_company),
 ):
+    if not _employee_belongs_to_company(db, att.employee_id, company.id):
+        raise HTTPException(status_code=403, detail="Employee not in your company")
+
     new_att = models.Attendance(
         name=str(att.employee_id),
         status=att.status
@@ -113,9 +144,21 @@ def mark_attendance(
 @app.get("/attendance", tags=["attendance"])
 def get_attendance(
     employee_id: int | None = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    if user.role == "employee":
+        employee_id = user.id
+    elif user.role != "company":
+        raise HTTPException(status_code=403, detail="Access denied")
+
     query = db.query(models.Attendance)
+
+    if user.role == "company":
+        company_ids = _company_employee_ids(db, user.id)
+        if not company_ids:
+            return []
+        query = query.filter(models.Attendance.name.in_([str(i) for i in company_ids]))
 
     if employee_id is not None:
         # Attendance stores the employee id in the "name" column as a string
@@ -147,8 +190,12 @@ def _leave_days(start_date: str, end_date: str) -> int:
 @app.post("/leaves", tags=["leave"])
 def apply_leave(
     leave: schemas.LeaveCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    if user.role != "employee" or leave.employee_id != user.id:
+        raise HTTPException(status_code=403, detail="Employees can only apply leave for themselves")
+
     new_leave = models.Leave(
         employee_id=leave.employee_id,
         employee_name=_resolve_employee_name(leave.employee_id, db),
@@ -174,9 +221,21 @@ def apply_leave(
 def get_leaves(
     status: str | None = None,
     employee_id: int | None = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    if user.role == "employee":
+        employee_id = user.id
+    elif user.role != "company":
+        raise HTTPException(status_code=403, detail="Access denied")
+
     query = db.query(models.Leave)
+
+    if user.role == "company":
+        company_ids = _company_employee_ids(db, user.id)
+        if not company_ids:
+            return []
+        query = query.filter(models.Leave.employee_id.in_(company_ids))
 
     if status:
         query = query.filter(models.Leave.status == status)
@@ -192,7 +251,8 @@ def get_leaves(
 def update_leave_status(
     leave_id: int,
     update: schemas.LeaveStatusUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    company: CurrentUser = Depends(require_company),
 ):
     leave = db.query(models.Leave).filter(
         models.Leave.id == leave_id
@@ -200,6 +260,9 @@ def update_leave_status(
 
     if not leave:
         raise HTTPException(status_code=404, detail="Leave not found")
+
+    if not _employee_belongs_to_company(db, leave.employee_id, company.id):
+        raise HTTPException(status_code=403, detail="Leave not in your company")
 
     valid_statuses = {"Approved", "Rejected", "Pending"}
     if update.status not in valid_statuses:
@@ -220,7 +283,20 @@ def update_leave_status(
 
 # Employee leave balance summary
 @app.get("/employees/{employee_id}/summary", tags=["employee"])
-def employee_summary(employee_id: int, db: Session = Depends(get_db)):
+def employee_summary(
+    employee_id: int,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    if user.role == "employee" and user.id != employee_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if user.role == "company" and not _employee_belongs_to_company(
+        db, employee_id, user.id
+    ):
+        raise HTTPException(status_code=403, detail="Employee not in your company")
+    if user.role not in ("employee", "company"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
     employee = db.query(models.Employee).filter(
         models.Employee.id == employee_id
     ).first()

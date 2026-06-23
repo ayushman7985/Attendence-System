@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import { getSession, clearSession } from "./authStorage";
+import { setAuthToken } from "./api";
 
 export default function App() {
   const [user, setUser] = useState(() => getSession());
@@ -13,6 +14,7 @@ export default function App() {
 
   const handleLogout = () => {
     clearSession();
+    setAuthToken(null);
     setUser(null);
   };
 

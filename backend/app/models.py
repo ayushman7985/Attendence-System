@@ -35,6 +35,7 @@ class Employee(Base):
     name = Column(String)
     email = Column(String, unique=True, index=True)
     password = Column(String)
+    company_id = Column(Integer, index=True, nullable=True)
     # Total leave days allotted per employee
     total_leaves = Column(Integer, default=12)
 

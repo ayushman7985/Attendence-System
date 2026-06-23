@@ -638,6 +638,24 @@
   }
 }
 
+.form--add-employee {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.form__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.btn-submit--compact {
+  width: auto;
+  align-self: flex-start;
+  padding: 0.7rem 1.25rem;
+}
+
 .leave-list {
   list-style: none;
   margin: 0;

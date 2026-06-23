@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { api } from "../api";
+import { api, getErrorMessage } from "../api";
 import "../App.css";
 
 function getInitials(name) {
@@ -45,6 +45,10 @@ export default function Dashboard({ user, onLogout }) {
   const [leaves, setLeaves] = useState([]);
   const [updatingLeaveId, setUpdatingLeaveId] = useState(null);
 
+  const [newEmployeeName, setNewEmployeeName] = useState("");
+  const [newEmployeeEmail, setNewEmployeeEmail] = useState("");
+  const [addingEmployee, setAddingEmployee] = useState(false);
+
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3200);
@@ -73,6 +77,30 @@ export default function Dashboard({ user, onLogout }) {
       showToast("Could not connect to the API. Is the backend running?", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addEmployee = async (e) => {
+    e.preventDefault();
+    if (!newEmployeeName.trim() || !newEmployeeEmail.trim()) {
+      showToast("Name and email are required", "error");
+      return;
+    }
+
+    setAddingEmployee(true);
+    try {
+      await api.post("/employees", {
+        name: newEmployeeName.trim(),
+        email: newEmployeeEmail.trim(),
+      });
+      showToast("Employee added successfully");
+      setNewEmployeeName("");
+      setNewEmployeeEmail("");
+      await getEmployees();
+    } catch (err) {
+      showToast(getErrorMessage(err, "Failed to add employee"), "error");
+    } finally {
+      setAddingEmployee(false);
     }
   };
 
@@ -224,13 +252,57 @@ export default function Dashboard({ user, onLogout }) {
               <span className="card__badge">{employees.length} active</span>
             </div>
             <div className="card__body">
+              <form className="form form--add-employee" onSubmit={addEmployee}>
+                <p className="form__hint">Add employees to your company using their name and Gmail address.</p>
+                <div className="form__row">
+                  <div className="form__group">
+                    <label className="form__label" htmlFor="employee-name">
+                      Full name
+                    </label>
+                    <input
+                      id="employee-name"
+                      className="form__input"
+                      type="text"
+                      placeholder="John Doe"
+                      value={newEmployeeName}
+                      onChange={(e) => setNewEmployeeName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form__group">
+                    <label className="form__label" htmlFor="employee-email">
+                      Gmail / email
+                    </label>
+                    <input
+                      id="employee-email"
+                      className="form__input"
+                      type="email"
+                      placeholder="john@gmail.com"
+                      value={newEmployeeEmail}
+                      onChange={(e) => setNewEmployeeEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="btn-submit btn-submit--compact"
+                  disabled={addingEmployee}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 11a4 4 0 100-8 4 4 0 000 8M20 8v6M23 11h-6" />
+                  </svg>
+                  {addingEmployee ? "Adding…" : "Add employee"}
+                </button>
+              </form>
+
               {employees.length === 0 ? (
                 <div className="empty">
                   <svg className="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
                     <circle cx="9" cy="7" r="4" />
                   </svg>
-                  <p>No employees yet</p>
+                  <p>No employees yet. Add your first employee above.</p>
                 </div>
               ) : (
                 <ul className="employee-list">
