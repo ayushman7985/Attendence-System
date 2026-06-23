@@ -1,6 +1,11 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String
 
-from database import Base
+try:
+    # Package-style import
+    from .database import Base
+except ImportError:
+    # Module-style import
+    from database import Base
 
 
 # Attendance Table
@@ -20,7 +25,6 @@ class Company(Base):
     company_name = Column(String, unique=True)
     email = Column(String, unique=True)
     password = Column(String)
-    invite_code = Column(String, unique=True, index=True)
 
 
 # Employee Table (employees can log in too)
@@ -28,10 +32,10 @@ class Employee(Base):
     __tablename__ = "employees"
 
     id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id"), index=True, nullable=True)
     name = Column(String)
     email = Column(String, unique=True, index=True)
     password = Column(String)
+    # Total leave days allotted per employee
     total_leaves = Column(Integer, default=12)
 
 

@@ -1,25 +1,27 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel
 
 
 class EmployeeCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    email: EmailStr
+    name: str
+    email: str
 
 
+# EMPLOYEE AUTH
 class EmployeeSignup(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
-    name: str | None = Field(default=None, max_length=120)
-    company_code: str | None = Field(default=None, max_length=32)
+    name: str
+    email: str
+    password: str
 
 
 class EmployeeLogin(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=1, max_length=128)
+    email: str
+    password: str
 
 
+# GOOGLE OAUTH
 class GoogleAuth(BaseModel):
     access_token: str
+    # "company" or "employee"
     role: str = "company"
 
 
@@ -27,23 +29,26 @@ class AttendanceCreate(BaseModel):
     employee_id: int
     status: str
 
-
 class CompanyCreate(BaseModel):
-    company_name: str = Field(min_length=1, max_length=120)
-    email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
+    company_name: str
+    email: str
+    password: str
 
 
+# LOGIN
 class CompanyLogin(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=1, max_length=128)
+    email: str
+    password: str
 
 
+# LEAVE
 class LeaveCreate(BaseModel):
-    reason: str = Field(min_length=1, max_length=500)
+    employee_id: int
+    reason: str
     start_date: str
     end_date: str
 
 
 class LeaveStatusUpdate(BaseModel):
+    # "Approved" or "Rejected"
     status: str

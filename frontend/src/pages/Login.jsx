@@ -1,14 +1,18 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, getErrorMessage } from "../api";
 import { setSession } from "../authStorage";
 import "./Login.css";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-function readInviteFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return (params.get("invite") || params.get("code") || "").trim().toUpperCase();
-}
+const DEMO_ACCOUNTS = {
+  company: { email: "admin@technova.com", password: "demo123" },
+  employees: [
+    { name: "Priya Sharma", email: "priya@technova.com", password: "demo123" },
+    { name: "Rahul Kumar", email: "rahul@technova.com", password: "demo123" },
+    { name: "Ananya Singh", email: "ananya@technova.com", password: "demo123" },
+  ],
+};
 
 export default function Login({ onLogin }) {
   const [role, setRole] = useState("company");
@@ -21,45 +25,10 @@ export default function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [companyCode, setCompanyCode] = useState("");
   const [fullName, setFullName] = useState("");
-  const [inviteCompanyName, setInviteCompanyName] = useState("");
 
   const isEmployee = role === "employee";
   const isLogin = mode === "login";
-  const usingInviteCode = !isLogin && isEmployee && companyCode.trim().length > 0;
-
-  useEffect(() => {
-    const invite = readInviteFromUrl();
-    if (!invite) return;
-
-    setRole("employee");
-    setMode("signup");
-    setCompanyCode(invite);
-  }, []);
-
-  useEffect(() => {
-    if (!usingInviteCode) {
-      setInviteCompanyName("");
-      return;
-    }
-
-    let active = true;
-    const code = companyCode.trim().toUpperCase();
-
-    api
-      .get("/invite/validate", { params: { code } })
-      .then((res) => {
-        if (active) setInviteCompanyName(res.data.company_name);
-      })
-      .catch(() => {
-        if (active) setInviteCompanyName("");
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [companyCode, usingInviteCode]);
 
   const handleCompanySubmit = async () => {
     if (mode === "signup") {
@@ -68,21 +37,11 @@ export default function Login({ onLogin }) {
         return;
       }
 
-      const res = await api.post("/signup", {
+      await api.post("/signup", {
         company_name: companyName.trim(),
         email: email.trim(),
         password,
       });
-
-      const session = {
-        role: "company",
-        company: res.data.company,
-        email: res.data.email,
-        token: res.data.access_token,
-      };
-      setSession(session);
-      onLogin(session);
-      return;
     }
 
     const res = await api.post("/login", {
@@ -93,8 +52,7 @@ export default function Login({ onLogin }) {
     const session = {
       role: "company",
       company: res.data.company,
-      email: res.data.email,
-      token: res.data.access_token,
+      email: email.trim(),
     };
     setSession(session);
     onLogin(session);
@@ -102,30 +60,16 @@ export default function Login({ onLogin }) {
 
   const handleEmployeeSubmit = async () => {
     if (mode === "signup") {
-      const payload = {
-        email: email.trim(),
-        password,
-      };
-
-      if (companyCode.trim()) {
-        payload.company_code = companyCode.trim().toUpperCase();
-        payload.name = fullName.trim();
+      if (!fullName.trim()) {
+        setError("Full name is required");
+        return;
       }
 
-      const res = await api.post("/employee/signup", payload);
-
-      const emp = res.data.employee;
-      const session = {
-        role: "employee",
-        id: emp.id,
-        name: emp.name,
-        email: emp.email,
-        total_leaves: emp.total_leaves,
-        token: res.data.access_token,
-      };
-      setSession(session);
-      onLogin(session);
-      return;
+      await api.post("/employee/signup", {
+        name: fullName.trim(),
+        email: email.trim(),
+        password,
+      });
     }
 
     const res = await api.post("/employee/login", {
@@ -140,7 +84,6 @@ export default function Login({ onLogin }) {
       name: emp.name,
       email: emp.email,
       total_leaves: emp.total_leaves,
-      token: res.data.access_token,
     };
     setSession(session);
     onLogin(session);
@@ -186,7 +129,6 @@ export default function Login({ onLogin }) {
           name: emp.name,
           email: emp.email,
           total_leaves: emp.total_leaves,
-          token: res.data.access_token,
         };
         setSession(session);
         onLogin(session);
@@ -195,7 +137,6 @@ export default function Login({ onLogin }) {
           role: "company",
           company: res.data.company,
           email: res.data.email,
-          token: res.data.access_token,
         };
         setSession(session);
         onLogin(session);
@@ -205,6 +146,12 @@ export default function Login({ onLogin }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fillDemo = (account) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setError("");
   };
 
   const handleGoogle = () => {
@@ -382,7 +329,7 @@ export default function Login({ onLogin }) {
             {isLogin
               ? "Enter your email and password to continue"
               : isEmployee
-                ? "Use your company invite code/link, or the email your admin added"
+                ? "Register as an employee to get started"
                 : "Register your company to get started"}
           </p>
 
@@ -411,60 +358,27 @@ export default function Login({ onLogin }) {
             )}
 
             {!isLogin && isEmployee && (
-              <>
-                <div className="login-form__group">
-                  <label className="login-form__label" htmlFor="company-code">
-                    Company invite code
-                  </label>
-                  <div className="login-field">
-                    <svg className="login-field__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3z" />
-                      <path d="M19 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
-                    </svg>
-                    <input
-                      id="company-code"
-                      className="login-form__input"
-                      type="text"
-                      placeholder="ABC12345"
-                      value={companyCode}
-                      onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
-                      autoComplete="off"
-                    />
-                  </div>
-                  {inviteCompanyName && (
-                    <p className="login-form__hint">Joining {inviteCompanyName}</p>
-                  )}
-                  {companyCode && !inviteCompanyName && (
-                    <p className="login-form__hint login-form__hint--muted">
-                      Enter a valid code from your employer
-                    </p>
-                  )}
+              <div className="login-form__group">
+                <label className="login-form__label" htmlFor="fullname">
+                  Full name
+                </label>
+                <div className="login-field">
+                  <svg className="login-field__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <input
+                    id="fullname"
+                    className="login-form__input"
+                    type="text"
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    autoComplete="name"
+                    required
+                  />
                 </div>
-
-                {usingInviteCode && (
-                  <div className="login-form__group">
-                    <label className="login-form__label" htmlFor="fullname">
-                      Full name
-                    </label>
-                    <div className="login-field">
-                      <svg className="login-field__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                      <input
-                        id="fullname"
-                        className="login-form__input"
-                        type="text"
-                        placeholder="John Doe"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        autoComplete="name"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
 
             <div className="login-form__group">
@@ -507,7 +421,7 @@ export default function Login({ onLogin }) {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   required
-                  minLength={6}
+                  minLength={4}
                 />
                 <button
                   type="button"
@@ -555,6 +469,32 @@ export default function Login({ onLogin }) {
             )}
 
             {error && <p className="login-form__error">{error}</p>}
+
+            {isLogin && (
+              <div className="login-demo">
+                <p className="login-demo__title">Demo accounts (password: demo123)</p>
+                {!isEmployee ? (
+                  <button
+                    type="button"
+                    className="login-demo__btn"
+                    onClick={() => fillDemo(DEMO_ACCOUNTS.company)}
+                  >
+                    TechNova Solutions — admin@technova.com
+                  </button>
+                ) : (
+                  DEMO_ACCOUNTS.employees.map((emp) => (
+                    <button
+                      key={emp.email}
+                      type="button"
+                      className="login-demo__btn"
+                      onClick={() => fillDemo(emp)}
+                    >
+                      {emp.name} — {emp.email}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
 
             <button type="submit" className="login-form__submit" disabled={loading}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

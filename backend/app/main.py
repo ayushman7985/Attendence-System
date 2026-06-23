@@ -4,21 +4,31 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from auth import router as auth_router
-from database import engine, Base, SessionLocal, run_migrations, ensure_company_invite_codes
-import models, schemas
-from deps import AuthUser, get_current_user, get_db, require_company, require_employee
-from security import normalize_invite_code
+# AUTH ROUTER
+try:
+    from .auth import router as auth_router
+except ImportError:
+    from auth import router as auth_router
+
+# DATABASE + MODELS
+try:
+    # Package-style imports
+    from .database import engine, Base, SessionLocal
+    from . import models, schemas
+except ImportError:
+    # Module-style imports
+    from database import engine, Base, SessionLocal
+    import models, schemas
 
 
 Base.metadata.create_all(bind=engine)
-run_migrations()
-ensure_company_invite_codes()
 
 app = FastAPI()
 
+# INCLUDE AUTH ROUTES
 app.include_router(auth_router, tags=["auth"])
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,109 +37,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Database Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
+
+# Home Route
 @app.get("/")
 def home():
     return {"message": "Attendance API Running"}
 
 
-@app.get("/invite/validate", tags=["invite"])
-def validate_invite_code(code: str, db: Session = Depends(get_db)):
-    normalized = normalize_invite_code(code)
-    if not normalized:
-        raise HTTPException(status_code=400, detail="Invite code is required")
-
-    company = db.query(models.Company).filter(
-        models.Company.invite_code == normalized
-    ).first()
-
-    if not company:
-        raise HTTPException(status_code=404, detail="Invalid company invite code")
-
-    return {
-        "valid": True,
-        "company_name": company.company_name,
-        "invite_code": company.invite_code,
-    }
-
-
-@app.get("/company/invite", tags=["company"])
-def get_company_invite(
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(require_company),
-):
-    company = db.query(models.Company).filter(models.Company.id == user.id).first()
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
-
-    if not company.invite_code:
-        from security import generate_invite_code
-
-        company.invite_code = generate_invite_code(db)
-        db.commit()
-        db.refresh(company)
-
-    return {
-        "company_name": company.company_name,
-        "invite_code": company.invite_code,
-    }
-
-
-def _company_employees_query(db: Session, company_id: int):
-    return db.query(models.Employee).filter(
-        models.Employee.company_id == company_id
-    )
-
-
-def _get_company_employee(db: Session, company_id: int, employee_id: int):
-    employee = _company_employees_query(db, company_id).filter(
-        models.Employee.id == employee_id
-    ).first()
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    return employee
-
-
-def _employee_registered(employee: models.Employee) -> bool:
-    return bool(employee.password)
-
-
+# Get Employees
 @app.get("/employees", tags=["employee"])
-def get_employees(
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(require_company),
-):
-    employees = _company_employees_query(db, user.id).all()
+def get_employees(db: Session = Depends(get_db)):
+    employees = db.query(models.Employee).all()
     return [
-        {
-            "id": e.id,
-            "name": e.name,
-            "email": e.email,
-            "registered": _employee_registered(e),
-        }
+        {"id": e.id, "name": e.name, "email": e.email}
         for e in employees
     ]
 
 
+# Create Employee (without login credentials)
 @app.post("/employees", tags=["employee"])
 def create_employee(
     emp: schemas.EmployeeCreate,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(require_company),
+    db: Session = Depends(get_db)
 ):
-    email = emp.email.strip().lower()
-
     existing = db.query(models.Employee).filter(
-        models.Employee.email == email
+        models.Employee.email == emp.email
     ).first()
 
     if existing:
         raise HTTPException(status_code=400, detail="Email already exists")
 
     new_employee = models.Employee(
-        company_id=user.id,
-        name=emp.name.strip(),
-        email=email,
+        name=emp.name,
+        email=emp.email,
         password="",
     )
 
@@ -137,25 +85,18 @@ def create_employee(
     db.commit()
     db.refresh(new_employee)
 
-    return {
-        "id": new_employee.id,
-        "name": new_employee.name,
-        "email": new_employee.email,
-        "registered": False,
-    }
+    return {"id": new_employee.id, "name": new_employee.name, "email": new_employee.email}
 
 
+# Mark Attendance
 @app.post("/attendance", tags=["attendance"])
 def mark_attendance(
     att: schemas.AttendanceCreate,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(require_company),
+    db: Session = Depends(get_db)
 ):
-    employee = _get_company_employee(db, user.id, att.employee_id)
-
     new_att = models.Attendance(
         name=str(att.employee_id),
-        status=att.status,
+        status=att.status
     )
 
     db.add(new_att)
@@ -164,32 +105,26 @@ def mark_attendance(
 
     return {
         "message": "Attendance Marked",
-        "data": new_att,
+        "data": new_att
     }
 
 
+# Get Attendance (optionally filter by employee)
 @app.get("/attendance", tags=["attendance"])
 def get_attendance(
     employee_id: int | None = None,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     query = db.query(models.Attendance)
 
-    if user.role == "employee":
-        query = query.filter(models.Attendance.name == str(user.id))
-    else:
-        employee_ids = [
-            str(e.id)
-            for e in _company_employees_query(db, user.id).all()
-        ]
-        if not employee_ids:
-            return []
-        query = query.filter(models.Attendance.name.in_(employee_ids))
+    if employee_id is not None:
+        # Attendance stores the employee id in the "name" column as a string
+        query = query.filter(models.Attendance.name == str(employee_id))
 
     return query.all()
 
 
+# Helper: resolve an employee name from the database
 def _resolve_employee_name(employee_id: int, db: Session) -> str:
     emp = db.query(models.Employee).filter(
         models.Employee.id == employee_id
@@ -197,6 +132,7 @@ def _resolve_employee_name(employee_id: int, db: Session) -> str:
     return emp.name if emp else f"Employee #{employee_id}"
 
 
+# Helper: number of inclusive days in a leave (YYYY-MM-DD strings)
 def _leave_days(start_date: str, end_date: str) -> int:
     try:
         start = date.fromisoformat(start_date)
@@ -207,16 +143,16 @@ def _leave_days(start_date: str, end_date: str) -> int:
         return 0
 
 
+# Apply for Leave
 @app.post("/leaves", tags=["leave"])
 def apply_leave(
     leave: schemas.LeaveCreate,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(require_employee),
+    db: Session = Depends(get_db)
 ):
     new_leave = models.Leave(
-        employee_id=user.id,
-        employee_name=_resolve_employee_name(user.id, db),
-        reason=leave.reason.strip(),
+        employee_id=leave.employee_id,
+        employee_name=_resolve_employee_name(leave.employee_id, db),
+        reason=leave.reason,
         start_date=leave.start_date,
         end_date=leave.end_date,
         status="Pending",
@@ -233,37 +169,30 @@ def apply_leave(
     }
 
 
+# Get Leave History (optionally filter by status and/or employee)
 @app.get("/leaves", tags=["leave"])
 def get_leaves(
     status: str | None = None,
     employee_id: int | None = None,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     query = db.query(models.Leave)
-
-    if user.role == "employee":
-        query = query.filter(models.Leave.employee_id == user.id)
-    else:
-        employee_ids = [
-            e.id for e in _company_employees_query(db, user.id).all()
-        ]
-        if not employee_ids:
-            return []
-        query = query.filter(models.Leave.employee_id.in_(employee_ids))
 
     if status:
         query = query.filter(models.Leave.status == status)
 
+    if employee_id is not None:
+        query = query.filter(models.Leave.employee_id == employee_id)
+
     return query.order_by(models.Leave.id.desc()).all()
 
 
+# Approve / Reject a Leave
 @app.patch("/leaves/{leave_id}", tags=["leave"])
 def update_leave_status(
     leave_id: int,
     update: schemas.LeaveStatusUpdate,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(require_company),
+    db: Session = Depends(get_db)
 ):
     leave = db.query(models.Leave).filter(
         models.Leave.id == leave_id
@@ -271,8 +200,6 @@ def update_leave_status(
 
     if not leave:
         raise HTTPException(status_code=404, detail="Leave not found")
-
-    _get_company_employee(db, user.id, leave.employee_id)
 
     valid_statuses = {"Approved", "Rejected", "Pending"}
     if update.status not in valid_statuses:
@@ -291,24 +218,15 @@ def update_leave_status(
     }
 
 
+# Employee leave balance summary
 @app.get("/employees/{employee_id}/summary", tags=["employee"])
-def employee_summary(
-    employee_id: int,
-    db: Session = Depends(get_db),
-    user: AuthUser = Depends(get_current_user),
-):
-    if user.role == "employee" and user.id != employee_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+def employee_summary(employee_id: int, db: Session = Depends(get_db)):
+    employee = db.query(models.Employee).filter(
+        models.Employee.id == employee_id
+    ).first()
 
-    if user.role == "company":
-        employee = _get_company_employee(db, user.id, employee_id)
-    else:
-        employee = db.query(models.Employee).filter(
-            models.Employee.id == employee_id
-        ).first()
-
-        if not employee:
-            raise HTTPException(status_code=404, detail="Employee not found")
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
 
     total = employee.total_leaves or 0
 

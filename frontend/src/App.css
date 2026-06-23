@@ -318,109 +318,14 @@
   color: var(--text-muted);
 }
 
-.employee-item__status {
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.employee-item__status.is-pending {
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.12);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-}
-
-.employee-item__status.is-registered {
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.35);
-}
-
-.card__hint {
-  margin: 0 0 1rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.form--inline {
-  margin-bottom: 0.75rem;
-}
-
-@media (min-width: 720px) {
-  .form--inline {
-    display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    align-items: end;
-    gap: 0.75rem;
-  }
-
-  .form--inline .btn-submit {
-    margin-bottom: 0;
-    white-space: nowrap;
-  }
-}
-
-.invite-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.invite-panel__item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.invite-panel__label {
-  margin: 0;
-  font-size: 0.8rem;
+.employee-item__id {
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.invite-panel__row {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.invite-panel__code {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--accent);
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.25);
-}
-
-.invite-panel__link {
-  flex: 1;
-  min-width: 220px;
-}
-
-.btn-copy {
-  padding: 0.65rem 0.9rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
   background: var(--surface);
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.btn-copy:hover {
-  border-color: var(--accent);
-  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid var(--border);
 }
 
 /* Form */
